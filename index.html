@@ -63,8 +63,9 @@ input {
 .chain-player.latest { color:#00ff88; font-weight:bold; animation: pop 0.3s ease; }
 @keyframes pop { 0% { transform: scale(1.2); opacity:0; } 50% { transform: scale(1.0); opacity:1; } 100% { transform: scale(1.0); } }
 
+/* Modal */
 .modal {
-    display: block;
+    display: none;  /* Start hidden */
     position: fixed;
     z-index: 9999;
     left: 0;
@@ -168,6 +169,11 @@ let timeLeft = 60;
 let bestRookie = localStorage.getItem("bestRookie") || 0;
 let bestAllPro = localStorage.getItem("bestAllPro") || 0;
 
+// Show modal on page load
+window.onload = function() {
+    document.getElementById("modeModal").style.display = "block";
+};
+
 // Fetch player data
 fetch("draftplayers.json")
 .then(res => res.json())
@@ -194,7 +200,7 @@ function toggleRules(){
 function setMode(selected){
     mode = selected;
     matchRequirement = (mode === "rookie") ? 2 : 3;
-    document.getElementById("modeModal").style.display = "none";
+    document.getElementById("modeModal").style.display = "none"; // hides modal
     startGame();
 }
 
@@ -223,5 +229,131 @@ function startGame(){
 function startTimer(){
     timeLeft = 60;
     document.getElementById("timer").innerText = "Time: " + timeLeft;
-    clearInte
+    clearInterval(timerInterval);
+    timerInterval = setInterval(()=>{
+        timeLeft--;
+        document.getElementById("timer").innerText = "Time: " + timeLeft;
+        if(timeLeft <= 0){
+            clearInterval(timerInterval);
+            endGame("Time’s up!");
+        }
+    },1000);
+}
+
+// Suggestions autocomplete
+document.getElementById("guessInput").addEventListener("input", function(){
+    const input = this.value.toLowerCase();
+    const suggestions = players
+        .filter(p => p.Player.toLowerCase().includes(input) && !usedPlayers.includes(p.Player))
+        .slice(0,10);
+
+    const suggestionsDiv = document.getElementById("suggestions");
+    suggestionsDiv.innerHTML = "";
+
+    suggestions.forEach(p=>{
+        const div = document.createElement("div");
+        div.className = "suggestion";
+        div.innerText = p.Player;
+        div.onclick = ()=>{
+            document.getElementById("guessInput").value = p.Player;
+            suggestionsDiv.innerHTML = "";
+        };
+        suggestionsDiv.appendChild(div);
+    });
+});
+
+// Submit guess
+function submitGuess(){
+    const guess = document.getElementById("guessInput").value.trim();
+    const guessedPlayer = players.find(p => p.Player.toLowerCase() === guess.toLowerCase());
+
+    if(!guessedPlayer || usedPlayers.includes(guessedPlayer.Player)){
+        document.getElementById("feedback").innerText = "Invalid or already used player.";
+        return;
+    }
+
+    if(firstTurn){
+        if(guessedPlayer.College !== requiredCollege){
+            endGame("Must match starting college!");
+            return;
+        }
+        currentPlayer = guessedPlayer;
+        usedPlayers.push(guessedPlayer.Player);
+        firstTurn = false;
+        streak++;
+        appendChain(currentPlayer.Player);
+        startTimer();
+        return;
+    }
+
+    let matches = 0;
+    let breakdown = [];
+
+    if(guessedPlayer.Team === currentPlayer.Team){ matches++; breakdown.push("Team"); }
+    if(guessedPlayer.Year === currentPlayer.Year){ matches++; breakdown.push("Year"); }
+    if(guessedPlayer.Pos === currentPlayer.Pos){ matches++; breakdown.push("Position"); }
+    if(guessedPlayer.College === currentPlayer.College){ matches++; breakdown.push("College"); }
+    if(guessedPlayer.Round === currentPlayer.Round){ matches++; breakdown.push("Round"); }
+
+    if(matches >= matchRequirement){
+        currentPlayer = guessedPlayer;
+        usedPlayers.push(guessedPlayer.Player);
+        streak++;
+        document.getElementById("feedback").innerHTML =
+            "Correct! Matched: <span class='match'>" + breakdown.join(", ") + "</span>";
+        appendChain(currentPlayer.Player);
+        startTimer();
+    } else {
+        endGame("Only " + matches + " matches. You broke the chain!");
+    }
+
+    document.getElementById("guessInput").value = "";
+    document.getElementById("suggestions").innerHTML = "";
+}
+
+// Append player to chain
+function appendChain(playerName){
+    const chainDiv = document.getElementById("playerChain");
+    if(chainDiv.innerHTML !== "") chainDiv.innerHTML += " 🔗 ";
+    chainDiv.innerHTML += `<span class="chain-player latest">${playerName}</span>`;
+    const spans = chainDiv.querySelectorAll(".chain-player");
+    spans.forEach((s,i)=>{ s.classList.toggle("latest", i===spans.length-1); });
+}
+
+// Copy chain to clipboard
+function copyChain(){
+    const chainText = document.getElementById("playerChain").innerText;
+    navigator.clipboard.writeText(chainText).then(()=>{
+        alert("Chain copied! Share your streak!");
+    });
+}
+
+// End game
+function endGame(message){
+    clearInterval(timerInterval);
+    document.getElementById("gameOver").innerText = message;
+
+    if(mode === "rookie" && streak > bestRookie){
+        bestRookie = streak;
+        localStorage.setItem("bestRookie", bestRookie);
+    }
+
+    if(mode === "allpro" && streak > bestAllPro){
+        bestAllPro = streak;
+        localStorage.setItem("bestAllPro", bestAllPro);
+    }
+
+    updateLeaderboard();
+}
+
+// Leaderboard
+function updateLeaderboard(){
+    document.getElementById("leaderboard").innerHTML =
+        "Rookie Mode: " + bestRookie + "<br>" +
+        "All-Pro Mode: " + bestAllPro;
+}
+</script>
+
+</body>
+</html>
 
