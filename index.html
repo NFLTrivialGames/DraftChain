@@ -65,16 +65,16 @@ input {
 
 /* Modal */
 .modal {
-    display: none;  /* Start hidden */
+    display: none; /* hidden by default */
     position: fixed;
     z-index: 9999;
     left: 0;
     top: 0;
     width: 100%;
     height: 100%;
-    overflow:auto;
     background: rgba(0,0,0,0.85);
 }
+.modal.show { display: block; }
 .modal-content {
     background: rgba(255,255,255,0.1);
     margin: 15% auto;
@@ -170,9 +170,9 @@ let bestRookie = localStorage.getItem("bestRookie") || 0;
 let bestAllPro = localStorage.getItem("bestAllPro") || 0;
 
 // Show modal on page load
-window.onload = function() {
-    document.getElementById("modeModal").style.display = "block";
-};
+document.addEventListener("DOMContentLoaded", function() {
+    document.getElementById("modeModal").classList.add("show");
+});
 
 // Fetch player data
 fetch("draftplayers.json")
@@ -200,7 +200,8 @@ function toggleRules(){
 function setMode(selected){
     mode = selected;
     matchRequirement = (mode === "rookie") ? 2 : 3;
-    document.getElementById("modeModal").style.display = "none"; // hides modal
+    const modal = document.getElementById("modeModal");
+    modal.classList.remove("show"); // reliably hide modal
     startGame();
 }
 
@@ -356,4 +357,3 @@ function updateLeaderboard(){
 
 </body>
 </html>
-
